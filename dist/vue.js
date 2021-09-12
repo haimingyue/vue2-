@@ -227,6 +227,9 @@
   var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/; // a=b  a="b"  a='b'
 
   var startTagClose = /^\s*(\/?)>/; //     />   <div/>
+  // ast (语法层面的描述 js css html) vdom （dom节点）
+  // html字符串解析成 对应的脚本来触发 tokens  <div id="app"> {{name}}</div>
+  // 将解析后的结果 组装成一个树结构  栈
 
   function createAstElement(tagName, attrs) {
     return {
@@ -239,10 +242,9 @@
   }
 
   var root = null;
-  var stack = []; // 将解析后的结果组合成树的结果，通过栈来实现树结构
+  var stack = [];
 
   function start(tagName, attributes) {
-    // console.log('start', tagName, attributes)
     var parent = stack[stack.length - 1];
     var element = createAstElement(tagName, attributes);
 
@@ -250,9 +252,9 @@
       root = element;
     }
 
-    element.parent = parent; // 当放入栈中的时候，记录parent
-
     if (parent) {
+      element.parent = parent; // 当放入栈中时 继续父亲是谁
+
       parent.children.push(element);
     }
 
@@ -260,17 +262,15 @@
   }
 
   function end(tagName) {
-    console.log('end', tagName);
     var last = stack.pop();
 
-    if (last.tag != tagName) {
-      throw new Error('标签有错误');
+    if (last.tag !== tagName) {
+      throw new Error('标签有误');
     }
   }
 
   function chars(text) {
-    console.log(text);
-    text = text.replace(/\s/g, '');
+    text = text.replace(/\s/g, "");
     var parent = stack[stack.length - 1];
 
     if (text) {
@@ -282,8 +282,6 @@
   }
 
   function parserHTML(html) {
-    // <div id="app">123</div>. 这里的html，解析一点删除一点.
-    // 这里就是正则循环匹配字符串
     function advance(len) {
       html = html.substring(len);
     }
@@ -292,49 +290,44 @@
       var start = html.match(startTagOpen);
 
       if (start) {
-        // 如果是开始标签，就要匹配里面的内容了
         var match = {
           tagName: start[1],
           attrs: []
         };
-        advance(start[0].length); // 这里已经匹配完标签头了
+        advance(start[0].length);
 
-        var _end;
+        var _end; // 如果没有遇到标签结尾就不停的解析
+
 
         var attr;
 
         while (!(_end = html.match(startTagClose)) && (attr = html.match(attribute))) {
-          // 不停的匹配属性，如果没有遇到标签结尾，就不停的匹配
           match.attrs.push({
             name: attr[1],
             value: attr[3] || attr[4] || attr[5]
           });
-          console.log('attr', attr);
           advance(attr[0].length);
-        } // 删除结尾 >{{name}}</div>
-
-
-        if (_end) {
-          advance(_end.length); // 删除结尾 {{name}}</div>
         }
 
-        return match; // 返回{tagName: "div", attrs: Array(2)}
+        if (_end) {
+          advance(_end[0].length);
+        }
+
+        return match;
       }
 
-      return false;
+      return false; // 不是开始标签
     }
 
     while (html) {
-      // 看要解析的内容是否存在，如果存在，就不停的解析
-      var textEnd = html.indexOf('<'); // 看看当前解析的是不是以<开头
+      // 看要解析的内容是否存在，如果存在就不停的解析
+      var textEnd = html.indexOf('<'); // 当前解析的开头  
 
-      if (textEnd === 0) {
-        // 情况1. 开始 情况2：闭合标签
+      if (textEnd == 0) {
         var startTagMatch = parseStartTag(); // 解析开始标签
 
         if (startTagMatch) {
           start(startTagMatch.tagName, startTagMatch.attrs);
-          console.log('startTagMatch', startTagMatch);
           continue;
         }
 
@@ -347,7 +340,7 @@
         }
       }
 
-      var text = void 0; // 123</div >
+      var text = void 0; // //  </div>
 
       if (textEnd > 0) {
         text = html.substring(0, textEnd);
@@ -358,13 +351,107 @@
         advance(text.length);
       }
     }
-  } // html解析成脚本来触发
 
+    return root;
+  } // 看一下用户是否传入了 , 没传入可能传入的是 template, template如果也没有传递
+  // 将我们的html =》 词法解析  （开始标签 ， 结束标签，属性，文本）
+  // => ast语法树 用来描述html语法的 stack=[]
+  // codegen  <div>hello</div>  =>   _c('div',{},'hello')  => 让字符串执行
+  // 字符串如果转成代码 eval 好性能 会有作用域问题
+  // 模板引擎 new Function + with 来实现
+
+  var defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g; // {{aaaaa}}
+
+  function genProps(attrs) {
+    var str = '';
+
+    for (var i = 0; i < attrs.length; i++) {
+      var attr = attrs[i];
+
+      if (attr.name === 'style') {
+        (function () {
+          var styleObj = {};
+          attr.value.replace(/([^:;]+):([^:;]+)/g, function () {
+            console.log(arguments[1], arguments[2]);
+            styleObj[arguments[1]] = arguments[2];
+          });
+          attr.value = styleObj;
+        })();
+      }
+
+      str += "".concat(attr.name, ":").concat(JSON.stringify(attr.value), ",");
+    }
+
+    return "{".concat(str.slice(0, -1), "}");
+  }
+
+  function gen(el) {
+    var text = el.text;
+    console.log('el', el);
+
+    if (el.type === 1) {
+      // element: 1 text: 3
+      return generate(el);
+    } else {
+      if (!defaultTagRE.test(text)) {
+        return "_v('".concat(text, "')");
+      } else {
+        // 拆分
+        var tokens = [];
+        var match;
+        var lastIndex = defaultTagRE.lastIndex = 0;
+
+        while (match = defaultTagRE.exec(text)) {
+          // 看有没有匹配到
+          var index = match.index; // 开始索引
+
+          if (index > lastIndex) {
+            tokens.push(JSON.stringify(text.slice(lastIndex, index)));
+          }
+
+          tokens.push("_s(".concat(match[1].trim(), ")"));
+          lastIndex = index + match[0].length;
+        }
+
+        if (lastIndex < text.length) {
+          tokens.push(JSON.stringify(text.slice(lastIndex)));
+        }
+
+        return "_v(".concat(tokens.join('+'), ")");
+      } // console.log('txext', text)
+
+    }
+  }
+
+  function genChildren(el) {
+    console.log('ellll', el);
+    var children = el.children;
+
+    if (children) {
+      return children.map(function (c) {
+        return gen(c);
+      }).join(',');
+    }
+  }
+
+  function generate(el) {
+    console.log('---------------', el);
+    var children = genChildren(el); // 遍历🌲，将🌲拼接成字符串
+
+    var code = "_c('".concat(el.tag, "', ").concat(el.attrs.length ? genProps(el.attrs) : 'undefined', ")").concat(children ? ",".concat(children) : '');
+    return code;
+  }
 
   function compileToFunction(template) {
-    console.log('template', template);
-    parserHTML(template);
-    console.log(root);
+    console.log('templatetemplatetemplatetemplate', template);
+    var root = parserHTML(template);
+    console.log('rootrootroot', root); // ast （只能描述语法）=> render => 虚拟Dom (可以扩展属性) => 生成很是Dom
+    // render() {
+    //     return _c('div', { id: 'app', a: 1 }, 'hello')
+    // }
+
+    var code = generate(root);
+    console.log(code);
   }
 
   function initMixin(Vue) {
