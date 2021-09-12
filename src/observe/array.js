@@ -31,7 +31,6 @@ methods.forEach(method => {
             default:
                 break;
         }
-        console.log('inserted', inserted)
         if (inserted) {
             // 如果有新增的值，就继续劫持，这里要观测的是数组的每一项
             ob.observeArray(inserted)

@@ -34,7 +34,6 @@ function initData(vm) {
     for (let key in data) {
         proxy(vm, '_data', key)
     }
-    console.log('data2', data)
     // 对数据进行观测
     observe(data)
 }

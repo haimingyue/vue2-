@@ -79,8 +79,6 @@
           inserted = args.slice(2);
       }
 
-      console.log('inserted', inserted);
-
       if (inserted) {
         // 如果有新增的值，就继续劫持，这里要观测的是数组的每一项
         ob.observeArray(inserted);
@@ -161,7 +159,6 @@
       return;
     }
 
-    console.log('ok', data);
     return new Observer(data);
   }
 
@@ -201,9 +198,8 @@
 
     for (var key in data) {
       proxy(vm, '_data', key);
-    }
+    } // 对数据进行观测
 
-    console.log('data2', data); // 对数据进行观测
 
     observe(data);
   }
@@ -219,6 +215,158 @@
     });
   }
 
+  var ncname = "[a-zA-Z_][\\-\\.0-9_a-zA-Z]*"; // 标签名 
+
+  var qnameCapture = "((?:".concat(ncname, "\\:)?").concat(ncname, ")"); //  用来获取的标签名的 match后的索引为1的
+
+  var startTagOpen = new RegExp("^<".concat(qnameCapture)); // 匹配开始标签的 
+
+  var endTag = new RegExp("^<\\/".concat(qnameCapture, "[^>]*>")); // 匹配闭合标签的
+  //           aa  =   "  xxx "  | '  xxxx '  | xxx
+
+  var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/; // a=b  a="b"  a='b'
+
+  var startTagClose = /^\s*(\/?)>/; //     />   <div/>
+
+  function createAstElement(tagName, attrs) {
+    return {
+      tag: tagName,
+      type: 1,
+      children: [],
+      parent: null,
+      attrs: attrs
+    };
+  }
+
+  var root = null;
+  var stack = []; // 将解析后的结果组合成树的结果，通过栈来实现树结构
+
+  function start(tagName, attributes) {
+    // console.log('start', tagName, attributes)
+    var parent = stack[stack.length - 1];
+    var element = createAstElement(tagName, attributes);
+
+    if (!root) {
+      root = element;
+    }
+
+    element.parent = parent; // 当放入栈中的时候，记录parent
+
+    if (parent) {
+      parent.children.push(element);
+    }
+
+    stack.push(element);
+  }
+
+  function end(tagName) {
+    console.log('end', tagName);
+    var last = stack.pop();
+
+    if (last.tag != tagName) {
+      throw new Error('标签有错误');
+    }
+  }
+
+  function chars(text) {
+    console.log(text);
+    text = text.replace(/\s/g, '');
+    var parent = stack[stack.length - 1];
+
+    if (text) {
+      parent.children.push({
+        type: 3,
+        text: text
+      });
+    }
+  }
+
+  function parserHTML(html) {
+    // <div id="app">123</div>. 这里的html，解析一点删除一点.
+    // 这里就是正则循环匹配字符串
+    function advance(len) {
+      html = html.substring(len);
+    }
+
+    function parseStartTag() {
+      var start = html.match(startTagOpen);
+
+      if (start) {
+        // 如果是开始标签，就要匹配里面的内容了
+        var match = {
+          tagName: start[1],
+          attrs: []
+        };
+        advance(start[0].length); // 这里已经匹配完标签头了
+
+        var _end;
+
+        var attr;
+
+        while (!(_end = html.match(startTagClose)) && (attr = html.match(attribute))) {
+          // 不停的匹配属性，如果没有遇到标签结尾，就不停的匹配
+          match.attrs.push({
+            name: attr[1],
+            value: attr[3] || attr[4] || attr[5]
+          });
+          console.log('attr', attr);
+          advance(attr[0].length);
+        } // 删除结尾 >{{name}}</div>
+
+
+        if (_end) {
+          advance(_end.length); // 删除结尾 {{name}}</div>
+        }
+
+        return match; // 返回{tagName: "div", attrs: Array(2)}
+      }
+
+      return false;
+    }
+
+    while (html) {
+      // 看要解析的内容是否存在，如果存在，就不停的解析
+      var textEnd = html.indexOf('<'); // 看看当前解析的是不是以<开头
+
+      if (textEnd === 0) {
+        // 情况1. 开始 情况2：闭合标签
+        var startTagMatch = parseStartTag(); // 解析开始标签
+
+        if (startTagMatch) {
+          start(startTagMatch.tagName, startTagMatch.attrs);
+          console.log('startTagMatch', startTagMatch);
+          continue;
+        }
+
+        var endTagMatch = html.match(endTag);
+
+        if (endTagMatch) {
+          end(endTagMatch[1]);
+          advance(endTagMatch[0].length);
+          continue;
+        }
+      }
+
+      var text = void 0; // 123</div >
+
+      if (textEnd > 0) {
+        text = html.substring(0, textEnd);
+      }
+
+      if (text) {
+        chars(text);
+        advance(text.length);
+      }
+    }
+  } // html解析成脚本来触发
+
+
+  function compileToFunction(template) {
+    console.log('template', template);
+    parserHTML(template);
+    console.log(root);
+  }
+
   function initMixin(Vue) {
     Vue.prototype._init = function (options) {
       // 这里的this就是当前的Vue实例
@@ -226,6 +374,29 @@
 
       vm.$options = options;
       initState(vm);
+
+      if (vm.$options.el) {
+        // 将数据挂载到这个模板上
+        vm.$mount(vm.$options.el);
+      }
+    };
+
+    Vue.prototype.$mount = function (el) {
+      var vm = this;
+      var options = vm.$options;
+      el = document.querySelector(el); // 1. 把模板变成渲染函数 => 虚拟Dom => vnode => diff 更新虚拟Dom，最后产生真实节点，一次更新
+
+      if (!options.render) {
+        // 这个render是用户自己写的render
+        var template = options.template;
+
+        if (!template && el) {
+          // 用户没有自己写template，就取el的内容作为模板
+          template = el.outerHTML;
+          var render = compileToFunction(template);
+          options.render = render;
+        }
+      }
     };
   }
 
