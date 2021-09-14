@@ -5,7 +5,7 @@ const endTag = new RegExp(`^<\\/${qnameCapture}[^>]*>`); // 匹配闭合标签�
 //           aa  =   "  xxx "  | '  xxxx '  | xxx
 const attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/; // a=b  a="b"  a='b'
 const startTagClose = /^\s*(\/?)>/; //     />   <div/>
-const defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g; // {{aaaaa}}
+// const defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g; // {{aaaaa}}
 
 
 // ast (语法层面的描述 js css html) vdom （dom节点）
@@ -104,7 +104,6 @@ export function parserHTML(html) {
             advance(text.length);
         }
     }
-
     return root;
 }
 

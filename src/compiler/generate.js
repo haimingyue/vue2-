@@ -19,7 +19,6 @@ function genProps(attrs) {
 
 function gen(el) {
     let text = el.text
-    console.log('el', el)
     if (el.type === 1) { // element: 1 text: 3
         return generate(el)
     } else {
@@ -46,13 +45,10 @@ function gen(el) {
 
             return `_v(${tokens.join('+')})`
         }
-        // console.log('txext', text)
-
     }
 }
 
 function genChildren(el) {
-    console.log('ellll', el)
     let children = el.children
     if (children) {
         return children.map(c => gen(c)).join(',')
@@ -60,7 +56,6 @@ function genChildren(el) {
 }
 
 function generate(el) {
-    console.log('---------------', el)
     let children = genChildren(el)
     // 遍历🌲，将🌲拼接成字符串
     let code = `_c('${el.tag}', ${el.attrs.length ? genProps(el.attrs) : 'undefined'

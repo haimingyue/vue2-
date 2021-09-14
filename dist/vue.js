@@ -227,6 +227,7 @@
   var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/; // a=b  a="b"  a='b'
 
   var startTagClose = /^\s*(\/?)>/; //     />   <div/>
+  // const defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g; // {{aaaaa}}
   // ast (语法层面的描述 js css html) vdom （dom节点）
   // html字符串解析成 对应的脚本来触发 tokens  <div id="app"> {{name}}</div>
   // 将解析后的结果 组装成一个树结构  栈
@@ -387,7 +388,6 @@
 
   function gen(el) {
     var text = el.text;
-    console.log('el', el);
 
     if (el.type === 1) {
       // element: 1 text: 3
@@ -418,13 +418,11 @@
         }
 
         return "_v(".concat(tokens.join('+'), ")");
-      } // console.log('txext', text)
-
+      }
     }
   }
 
   function genChildren(el) {
-    console.log('ellll', el);
     var children = el.children;
 
     if (children) {
@@ -435,7 +433,6 @@
   }
 
   function generate(el) {
-    console.log('---------------', el);
     var children = genChildren(el); // 遍历🌲，将🌲拼接成字符串
 
     var code = "_c('".concat(el.tag, "', ").concat(el.attrs.length ? genProps(el.attrs) : 'undefined', ")").concat(children ? ",".concat(children) : '');
@@ -443,9 +440,8 @@
   }
 
   function compileToFunction(template) {
-    console.log('templatetemplatetemplatetemplate', template);
     var root = parserHTML(template);
-    console.log('rootrootroot', root); // ast （只能描述语法）=> render => 虚拟Dom (可以扩展属性) => 生成很是Dom
+    console.log('ast', root); // ast （只能描述语法）=> render => 虚拟Dom (可以扩展属性) => 生成很是Dom
     // render() {
     //     return _c('div', { id: 'app', a: 1 }, 'hello')
     // }
