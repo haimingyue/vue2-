@@ -1,5 +1,6 @@
 import { isObject } from "../util"
 import { arrayMethods } from './array';
+import Dep from './dep';
 
 class Observer {
     constructor(data) {
@@ -44,14 +45,27 @@ class Observer {
 function defineReactive(data, key, value) {
     // value 有可能是对象（对象套对象），递归劫持
     observe(value)
+    let dep = new Dep()
     Object.defineProperty(data, key, {
         get() {
+            console.log('key', key)
+            // 取值时候我希望将watcher和Dep关联起来
+            // 但是这里没有watcher
+            if (Dep.target) {
+                // 说明这个get是在模板中使用的
+                // 让dep记住watcher，依赖收集,它是一个依赖收集器 
+                dep.depend()
+            }
             return value
         },
         set(newV) {
-            observe(newV)
-            // 如果用户赋值的是一个新对象，需要将这个对象进行劫持
-            value = newV
+            if (newV !== value) {
+                observe(newV)
+                // 如果用户赋值的是一个新对象，需要将这个对象进行劫持
+                value = newV
+                dep.notify() // 通知当前的属性存放的watcher执行
+            }
+
         }
     })
 }

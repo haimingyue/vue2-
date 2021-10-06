@@ -86,6 +86,52 @@
     };
   });
 
+  // 一个属性对应一个dep，做属性收集
+  var id$1 = 0;
+
+  var Dep = /*#__PURE__*/function () {
+    // 每一个属性都分配一个Dep，每一个Dep可以存放watcher，watch中要存放Dep
+    function Dep() {
+      _classCallCheck(this, Dep);
+
+      this.id = id$1++;
+      this.subs = []; // 用来存放watcher
+    }
+
+    _createClass(Dep, [{
+      key: "depend",
+      value: function depend() {
+        // Dep.target dep里面要存放这个watcher watcher一样要存放dep
+        if (Dep.target) {
+          // 把dep给watcher，让watcher存放dep
+          Dep.target.addDep(this);
+        }
+      }
+    }, {
+      key: "addSub",
+      value: function addSub(watcher) {
+        this.subs.push(watcher);
+      }
+    }, {
+      key: "notify",
+      value: function notify() {
+        this.subs.forEach(function (watcher) {
+          watcher.update();
+        });
+      }
+    }]);
+
+    return Dep;
+  }();
+
+  Dep.target = null;
+  function pushTarget(watcher) {
+    Dep.target = watcher;
+  }
+  function popTarget() {
+    Dep.target = null;
+  }
+
   var Observer = /*#__PURE__*/function () {
     function Observer(data) {
       _classCallCheck(this, Observer);
@@ -138,14 +184,27 @@
   function defineReactive(data, key, value) {
     // value 有可能是对象（对象套对象），递归劫持
     observe(value);
+    var dep = new Dep();
     Object.defineProperty(data, key, {
       get: function get() {
+        console.log('key', key); // 取值时候我希望将watcher和Dep关联起来
+        // 但是这里没有watcher
+
+        if (Dep.target) {
+          // 说明这个get是在模板中使用的
+          // 让dep记住watcher，依赖收集,它是一个依赖收集器 
+          dep.depend();
+        }
+
         return value;
       },
       set: function set(newV) {
-        observe(newV); // 如果用户赋值的是一个新对象，需要将这个对象进行劫持
+        if (newV !== value) {
+          observe(newV); // 如果用户赋值的是一个新对象，需要将这个对象进行劫持
 
-        value = newV;
+          value = newV;
+          dep.notify(); // 通知当前的属性存放的watcher执行
+        }
       }
     });
   }
@@ -447,14 +506,18 @@
   }
 
   function patch(oldVnode, vnode) {
-    if (oldVnode.nodeType == 1) {
-      console.log('真实元素'); // 用Vnode 替换真实 Dom
+    console.log('oldVnode', oldVnode.nodeType);
 
+    if (oldVnode.nodeType == 1) {
+      // console.log('真实元素', vnode)
+      // 用Vnode 替换真实 Dom
       var parentEl = oldVnode.parentNode;
-      var elm = createElm(vnode);
-      console.log();
+      var elm = createElm(vnode); // console.log()
+      // 第一次渲染后，就会删除oldVnode
+
       parentEl.insertBefore(elm, oldVnode.nextSibling);
       parentEl.removeChild(oldVnode);
+      return elm;
     }
   }
 
@@ -478,13 +541,73 @@
     return vnode.el;
   }
 
+  // 一个组件对应一个watcher
+  var id = 0;
+
+  var Watcher = /*#__PURE__*/function () {
+    function Watcher(vm, exprOrFn, cb, options) {
+      _classCallCheck(this, Watcher);
+
+      this.vm = vm;
+      this.exprOrFn = exprOrFn;
+      this.cb = cb;
+      this.options = options;
+      this.id = id++; // 给watcher添加标识
+      // 默认应该执行exprOrFn
+      // exprOrFn 做了渲染和更新
+      // 方法被调用的时候，会取值
+
+      this.getter = exprOrFn;
+      this.deps = [];
+      this.depsId = new Set(); // 默认初始化执行get
+
+      this.get();
+    }
+
+    _createClass(Watcher, [{
+      key: "get",
+      value: function get() {
+        pushTarget(this); // Dep的target就是一个watcher
+
+        /* 创建关联 alert 
+            * 每个属性都可以收集自己的watcher
+           * 希望一个属性可以对应多个watcher
+           * 一个watcher可以对应多个属性
+        */
+        // 稍后用户更新的时候可以重新调用get方法
+
+        this.getter();
+        popTarget(); // 这里去除Dep.target,是防止用户在js中取值产生依赖收集
+      }
+    }, {
+      key: "update",
+      value: function update() {
+        this.get();
+      }
+    }, {
+      key: "addDep",
+      value: function addDep(dep) {
+        var id = dep.id;
+
+        if (!this.depsId.has(id)) {
+          this.depsId.add(id);
+          this.deps.push(dep);
+          dep.addSub(this);
+        }
+      }
+    }]);
+
+    return Watcher;
+  }();
+
   function lifecycleMixin(Vue) {
     Vue.prototype._update = function (vnode) {
-      console.log('vnode', vnode); // 即有初始化，又有更新
+      // console.log('vnode22', vnode)
+      // 即有初始化，又有更新
       // 比较前后的虚拟节点的差异
+      var vm = this; // 将新的节点替换掉老的节点
 
-      var vm = this;
-      patch(vm.$el, vnode);
+      vm.$el = patch(vm.$el, vnode);
     };
   }
   function mountComponent(vm, el) {
@@ -494,9 +617,16 @@
       vm._update(vm._render()); // 后续更新可以调动updateComponent方法
       // 2. 虚拟Dom生成真实Dom
 
-    };
+    }; // 观察者模式：属性是被观察者 刷新页面：观察者
+    // updateComponent()
+    // 如果属性发生变化，就调用updateComponent方法
+    // 每一个组件都有一个watcher
 
-    updateComponent();
+
+    new Watcher(vm, updateComponent, function () {// console.log('我更新视图了')
+      // true 告诉他是一个渲染过程
+      // 后续还有其他的watcher
+    }, true);
   }
 
   function initMixin(Vue) {
@@ -542,7 +672,7 @@
       children[_key - 3] = arguments[_key];
     }
 
-    console.log('112233', vnode(vm, tag, data, data.key, children, undefined));
+    // console.log('112233', vnode(vm, tag, data, data.key, children, undefined))
     return vnode(vm, tag, data, data.key, children, undefined);
   }
   function createTextElement(vm, text) {
@@ -562,27 +692,24 @@
 
   function renderMixin(Vue) {
     Vue.prototype._c = function (tag, data) {
-      var _console;
-
       for (var _len = arguments.length, children = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
         children[_key - 2] = arguments[_key];
       }
 
-      (_console = console).log.apply(_console, ['执行1', tag, data].concat(children)); // 产生虚拟节点
-
-
+      // console.log('执行1', tag, data, ...children)
+      // 产生虚拟节点
       return createElement.apply(void 0, [this].concat(Array.prototype.slice.call(arguments)));
     };
 
     Vue.prototype._v = function (text) {
-      console.log('执行2'); // 产生虚拟节点
-
+      // console.log('执行2')
+      // 产生虚拟节点
       return createTextElement(this, text);
     };
 
     Vue.prototype._s = function (val) {
-      console.log('执行3'); // 产生虚拟节点
-
+      // console.log('执行3')
+      // 产生虚拟节点
       if (_typeof(val) === 'object') {
         return JSON.stringify(val);
       }
@@ -591,11 +718,11 @@
     };
 
     Vue.prototype._render = function () {
-      var vm = this;
-      console.log('vm.$options.render', vm.$options.render);
+      var vm = this; // console.log('vm.$options.render', vm.$options.render)
+
       var render = vm.$options.render;
-      var vnode = render.call(vm);
-      console.log('vnode', vnode);
+      var vnode = render.call(vm); // console.log('vnode', vnode)
+
       return vnode;
     };
   }

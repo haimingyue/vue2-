@@ -1,5 +1,5 @@
 export function createElement(vm, tag, data = {}, ...children) {
-    console.log('112233', vnode(vm, tag, data, data.key, children, undefined))
+    // console.log('112233', vnode(vm, tag, data, data.key, children, undefined))
     return vnode(vm, tag, data, data.key, children, undefined)
 }
 

@@ -1,13 +1,16 @@
 export function patch(oldVnode, vnode) {
+    console.log('oldVnode', oldVnode.nodeType)
     if (oldVnode.nodeType == 1) {
-        console.log('真实元素')
+        // console.log('真实元素', vnode)
         // 用Vnode 替换真实 Dom
         const parentEl = oldVnode.parentNode;
         let elm = createElm(vnode)
-        console.log()
+        // console.log()
+        // 第一次渲染后，就会删除oldVnode
         parentEl.insertBefore(elm, oldVnode.nextSibling)
 
         parentEl.removeChild(oldVnode)
+        return elm
     }
 }
 
