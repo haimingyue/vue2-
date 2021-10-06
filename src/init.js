@@ -1,5 +1,6 @@
 import { initState } from "./state"
 import { compileToFunction } from './compiler/index';
+import { mountComponent } from './lifecycle';
 
 // 表示在vue的基础上做一次混合操作
 export function initMixin(Vue) {
@@ -20,6 +21,7 @@ export function initMixin(Vue) {
         const vm = this
         const options = vm.$options
         el = document.querySelector(el)
+        vm.$el = el
         // 1. 把模板变成渲染函数 => 虚拟Dom => vnode => diff 更新虚拟Dom，最后产生真实节点，一次更新
         if (!options.render) {
             // 这个render是用户自己写的render
@@ -31,5 +33,6 @@ export function initMixin(Vue) {
                 options.render = render
             }
         }
+        mountComponent(vm, el)
     }
 }

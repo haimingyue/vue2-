@@ -7,7 +7,6 @@ function genProps(attrs) {
         if (attr.name === 'style') {
             let styleObj = {}
             attr.value.replace(/([^:;]+):([^:;]+)/g, function () {
-                console.log(arguments[1], arguments[2])
                 styleObj[arguments[1]] = arguments[2]
             })
             attr.value = styleObj
