@@ -481,19 +481,21 @@
   }
 
   function genChildren(el) {
-    var children = el.children;
+    var children = el.children; // 获取儿子
 
     if (children) {
       return children.map(function (c) {
         return gen(c);
       }).join(',');
     }
+
+    return false;
   }
 
   function generate(el) {
     var children = genChildren(el); // 遍历🌲，将🌲拼接成字符串
 
-    var code = "_c('".concat(el.tag, "', ").concat(el.attrs.length ? genProps(el.attrs) : 'undefined', ")").concat(children ? ",".concat(children) : '');
+    var code = "_c('".concat(el.tag, "', ").concat(el.attrs.length ? genProps(el.attrs) : 'undefined').concat(children ? ",".concat(children) : '', ")");
     return code;
   }
 

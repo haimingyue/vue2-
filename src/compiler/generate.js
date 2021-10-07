@@ -48,18 +48,20 @@ function gen(el) {
 }
 
 function genChildren(el) {
-    let children = el.children
+    let children = el.children; // 获取儿子
     if (children) {
         return children.map(c => gen(c)).join(',')
     }
+    return false;
 }
 
 function generate(el) {
     let children = genChildren(el)
     // 遍历🌲，将🌲拼接成字符串
     let code = `_c('${el.tag}', ${el.attrs.length ? genProps(el.attrs) : 'undefined'
-        })${children ? `,${children}` : ''}`
+        }${children ? `,${children}` : ''})`
     return code
 }
 
 export { generate };
+
