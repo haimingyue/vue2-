@@ -48,6 +48,56 @@
   function isObject(val) {
     return _typeof(val) === 'object' && val != null;
   }
+  var callbacks = [];
+
+  function flushCallbacks() {
+    callbacks.forEach(function (cb) {
+      return cb();
+    });
+    waiting = false;
+  }
+
+  var waiting = false;
+
+  function timer(flushCallbacks) {
+    var timerFn = function timerFn() {};
+
+    if (Promise) {
+      timerFn = function timerFn() {
+        Promise.resolve().then(flushCallbacks);
+      };
+    } else if (MutationObserver) {
+      // 这个也是微任务
+      var textNode = document.createTextNode(1);
+      var observe = new MutationObserver(flushCallbacks);
+      observe.observe(textNode, {
+        characterData: true
+      });
+
+      timerFn = function timerFn() {
+        textNode.textContent = 3;
+      };
+    } else if (setImmediate) {
+      timerFn = function timerFn() {
+        setImmediate(flushCallbacks);
+      };
+    } else {
+      timerFn = function timerFn() {
+        setTimeout(flushCallbacks, 0);
+      };
+    }
+
+    timerFn();
+  }
+
+  function nextTick(cb) {
+    callbacks.push(cb); // 先修改数据 flush(先执行) / 后用户调用vm.$nextTick(后)
+
+    if (!waiting) {
+      timer(flushCallbacks);
+      waiting = true;
+    }
+  }
 
   var oldArrayPrototype = Array.prototype;
   var arrayMethods = Object.create(oldArrayPrototype); // arrayMethods.__proto__ = Array.prototype 继承
@@ -543,6 +593,37 @@
     return vnode.el;
   }
 
+  // 调度工作
+
+  var queue = [];
+  var has = {}; // 列表维护存放了哪些watcher
+
+  function flushSchedulerQueue() {
+    for (var i = 0; i < queue.length; i++) {
+      queue[i].run();
+    }
+
+    queue = [];
+    has = {};
+    pending = false;
+  }
+
+  var pending = false;
+  function queueWatcher(watcher) {
+    // 多次更新，会收到多个watcher
+    var id = watcher.id;
+
+    if (has[id] == null) {
+      queue.push(watcher);
+      has[id] = true; // 开启一次更新操作 批处理 （防抖）
+
+      if (!pending) {
+        nextTick(flushSchedulerQueue);
+        pending = true;
+      }
+    }
+  }
+
   // 一个组件对应一个watcher
   var id = 0;
 
@@ -584,6 +665,17 @@
     }, {
       key: "update",
       value: function update() {
+        // 每次更新时，把watcher缓存下来 
+        // 如果多次跟新的是一个watcher，合并成一个
+        // vue中的更新是异步的
+        // this.get()
+        queueWatcher(this);
+      }
+    }, {
+      key: "run",
+      value: function run() {
+        // 后续要有其他的功能
+        console.log('run');
         this.get();
       }
     }, {
@@ -600,7 +692,7 @@
     }]);
 
     return Watcher;
-  }();
+  }(); // 在vue中，页面渲染的时候使用的属性，需要进行依赖收集
 
   function lifecycleMixin(Vue) {
     Vue.prototype._update = function (vnode) {
@@ -611,6 +703,8 @@
 
       vm.$el = patch(vm.$el, vnode);
     };
+
+    Vue.prototype.$nextTick = nextTick;
   }
   function mountComponent(vm, el) {
     // 数据变化后，会再次调用更新函数

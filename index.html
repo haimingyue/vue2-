@@ -10,7 +10,7 @@
 
 <body>
     <div id="app">
-        hello{{name}}word
+        hello（{{name}}）word
     </div>
     <script src="dist/vue.js"></script>
 
@@ -21,20 +21,28 @@
             // 按找个套路，Vue就是一个类
             el: '#app',
             data() {
-                return { name: 'qianheming', age: 11 }
+                return { name: '阿飞', age: 11 }
             }
         });
-        setTimeout(() => {
-            // 重新调用render，并没有diff
-            console.log('执行')
-            vm.name = 'hello'
-            // vm._update(vm._render())
-        }, 1000)
+        // setTimeout(() => {
+        //     // 重新调用render，并没有diff
+        //     vm.name = '1s后变成程序员'
+        //     vm.name = '1s后变成程序员'
+        //     vm.name = '1s后变成程序员'
+        //     vm.name = '1s后变成程序员'
+        //     // vm._update(vm._render())
+        // }, 1000)
+        vm.name = '1s后变成程序员'
+        vm.name = '2s后变成程序员'
+        vm.name = '3s后变成程序员'
+        vm.name = '4s后变成程序员1'
+        vm.$nextTick(() => {
+            console.log('el', vm.$el)
+        })
         // 用户很少对数组的下标进行操作，且消耗严重，所以内部数组不采用defineProperty
         // 所以就要通过 push、shift、pop、unshift、reverse、sort、splice这7个变异方法(可能会更改原数组)进行处理
         // vm.name.push('xiaoming')
-        // vm.arr.push({ 'last': 'heming' }) 
-        console.log('vm', vm)
+        // vm.arr.push({ 'last': 'heming' })
     </script>
 </body>
 
