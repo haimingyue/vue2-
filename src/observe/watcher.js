@@ -41,7 +41,7 @@ class Watcher {
     }
 
     run() { // 后续要有其他的功能
-        console.log('run')
+        // console.log('run')
         this.get()
     }
     addDep(dep) {

@@ -60,17 +60,17 @@ function defineReactive(data, key, value) {
     // value 有可能是对象（对象套对象），递归劫持
     let childOb = observe(value)
     let dep = new Dep()
-    console.log('childOb', childOb)
+    // console.log('childOb', childOb)
     Object.defineProperty(data, key, {
         get() {
-            console.log('key', key)
+            // console.log('key', key)
             // 取值时候我希望将watcher和Dep关联起来
             // 但是这里没有watcher
             if (Dep.target) {
                 // 说明这个get是在模板中使用的
                 // 让dep记住watcher，依赖收集,它是一个依赖收集器 
                 dep.depend()
-                console.log(childOb)
+                // console.log(childOb)
                 if (childOb) { // childOb可能是数组，也可能是对象，对象也要收集，后续写$set的时候需要用到它自己的更新操作
                     childOb.dep.depend() // 让数组和对象也记录watcher
                     if (Array.isArray(value)) {

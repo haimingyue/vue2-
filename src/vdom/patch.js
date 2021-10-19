@@ -1,5 +1,5 @@
 export function patch(oldVnode, vnode) {
-    console.log('oldVnode', oldVnode.nodeType)
+    // console.log('oldVnode', oldVnode.nodeType)
     if (oldVnode.nodeType == 1) {
         // console.log('真实元素', vnode)
         // 用Vnode 替换真实 Dom
