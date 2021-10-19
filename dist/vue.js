@@ -133,6 +133,9 @@
         // 如果有新增的值，就继续劫持，这里要观测的是数组的每一项
         ob.observeArray(inserted);
       }
+
+      console.log('obbbbb', ob);
+      ob.dep.notify();
     };
   });
 
@@ -186,9 +189,10 @@
     function Observer(data) {
       _classCallCheck(this, Observer);
 
-      // 给当前的数组添加一个属性，当前的observer的实例
+      this.dep = new Dep(); // 给当前的数组添加一个属性，当前的observer的实例
       // data.__ob__ = this
       // 这里用__ob__会出现死循环，因为会不停的执行defineReactive
+
       Object.defineProperty(data, '__ob__', {
         value: this,
         enumerable: false // 不可枚举
@@ -227,14 +231,28 @@
     }]);
 
     return Observer;
-  }(); // vue2为什么性能低？
+  }();
+
+  function dependArray(value) {
+    for (var i = 0; i < value.length; i++) {
+      var current = value[i]; // current 是数组里面的数组
+
+      console.log('current', current);
+      current.__ob__ && current.__ob__.dep.depend();
+
+      if (Array.isArray(current)) {
+        dependArray(current);
+      }
+    }
+  } // vue2为什么性能低？
   // 因为Vue2会对对象进行遍历，将每个属性用defineProperty重新定义（全量劫持）
 
 
   function defineReactive(data, key, value) {
     // value 有可能是对象（对象套对象），递归劫持
-    observe(value);
+    var childOb = observe(value);
     var dep = new Dep();
+    console.log('childOb', childOb);
     Object.defineProperty(data, key, {
       get: function get() {
         console.log('key', key); // 取值时候我希望将watcher和Dep关联起来
@@ -244,6 +262,16 @@
           // 说明这个get是在模板中使用的
           // 让dep记住watcher，依赖收集,它是一个依赖收集器 
           dep.depend();
+          console.log(childOb);
+
+          if (childOb) {
+            // childOb可能是数组，也可能是对象，对象也要收集，后续写$set的时候需要用到它自己的更新操作
+            childOb.dep.depend(); // 让数组和对象也记录watcher
+
+            if (Array.isArray(value)) {
+              dependArray(value);
+            }
+          }
         }
 
         return value;
@@ -265,7 +293,7 @@
     }
 
     if (data.__ob__) {
-      return;
+      return data.__ob__;
     }
 
     return new Observer(data);
