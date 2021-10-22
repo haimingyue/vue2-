@@ -22,12 +22,6 @@
             el: '#app',
             data() {
                 return { arr: [[1, 2]] }
-            },
-            watch: {
-                name(newVal, oldVal) {
-                    console.log('newVal', newVal)
-                    console.log('oldVal', oldVal)
-                }
             }
         });
         setTimeout(() => {

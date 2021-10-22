@@ -1,6 +1,7 @@
 import { initMixin } from './init';
 import { renderMixin } from './render';
 import { lifecycleMixin } from './lifecycle';
+import { stateMixin } from './state'
 
 /**
  * 
@@ -18,5 +19,6 @@ initMixin(Vue)
 renderMixin(Vue)
 // _update
 lifecycleMixin(Vue)
+stateMixin(Vue)
 
 export default Vue

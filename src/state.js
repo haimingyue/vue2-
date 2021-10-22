@@ -1,5 +1,19 @@
 import { isFunction } from './util';
 import { observe } from './observe/index';
+import Watcher from './observe/watcher';
+
+/**
+ * 
+ * @param {*} Vue 
+ */
+export function stateMixin(Vue) {
+    Vue.prototype.$watch = function (key, handler, options = {}) {
+        // 用户自己写的watcher和渲染watcher区分
+        options.user = true
+        new Watcher(this, key, handler, options)
+    }
+}
+
 /**
  * 
  * @param {Vue的实例} vm 
@@ -17,10 +31,10 @@ export function initState(vm) {
     //     // 对数据进行处理
     //     initComputed()
     // }
-    // if (opts.watch) {
-    //     // 对数据进行处理
-    //     initWatch()
-    // }
+    if (opts.watch) {
+        // 对数据进行处理
+        initWatch(vm, opts.watch)
+    }
 }
 
 function initData(vm) {
@@ -47,4 +61,24 @@ function proxy(vm, source, key) {
             vm[source][key] = newValue
         }
     })
+}
+
+function initWatch(vm, watch) {
+    for (let key in watch) {
+        let handler = watch[key]
+        if (Array.isArray(handler)) {
+            for (let i = 0; i < handler.length; i++) {
+                // handler[i]
+                createWatcher(vm, key, handler[i])
+            }
+        } else {
+            // handler
+            createWatcher(vm, key, handler)
+        }
+    }
+}
+
+function createWatcher(vm, key, handler) {
+    // new Watcher()
+    return vm.$watch(key, handler)
 }
