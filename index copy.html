@@ -10,7 +10,7 @@
 
 <body>
     <div id="app">
-        {{name}}
+        {{name}} {{fullName}}
     </div>
     <script src="dist/vue.js"></script>
 
@@ -21,17 +21,31 @@
             // 按找个套路，Vue就是一个类
             el: '#app',
             data() {
-                return { name: '张三' }
+                return {
+                    name: '张三',
+                    firstName: 'zhang',
+                    lastName: 'san'
+                }
             },
-            watch: {
-                name(newVal, oldVal) {
-                    console.log('newVal', newVal)
-                    console.log('oldVal', oldVal)
+            computed: {
+                fullName: {
+                    get() {
+                        console.log('ooo')
+                        return this.firstName + this.lastName
+                    },
+                    set() {
+                        console.log("set full name")
+                    }
                 }
             }
         });
+
+        console.log(vm.fullName)
+        console.log(vm.fullName)
+        vm.firstName = 'wang'
+        console.log(vm.fullName)
         setTimeout(() => {
-            vm.name = '李四';
+            vm.firstName = '李四';
         }, 1000);
 
     </script>

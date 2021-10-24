@@ -23,12 +23,18 @@ class Dep {
     }
 }
 Dep.target = null
+
+// 用一个栈解决computer的watcher问题
+let stack = []
 export function pushTarget(watcher) {
     Dep.target = watcher
+    stack.push(watcher)
+    console.log('stack', stack)
 }
 
 export function popTarget() {
-    Dep.target = null
+    stack.pop()
+    Dep.target = stack[stack.length - 1]
 }
 
 export default Dep

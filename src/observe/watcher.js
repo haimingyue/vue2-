@@ -8,6 +8,10 @@ class Watcher {
         this.vm = vm
         this.exprOrFn = exprOrFn
         this.user = !!options.user // 标识是不是用户写的watcher
+        this.lazy = !!options.lazy
+        // 默认的dirty是脏的
+        // 如果是计算属性，则默认dirty是true | lazy也是true
+        this.dirty = options.lazy
         this.cb = cb
         this.options = options
         this.id = id++ // 给watcher添加标识
@@ -35,7 +39,8 @@ class Watcher {
         this.depsId = new Set()
         // 默认初始化执行get
         // 第一次渲染的时候的value
-        this.value = this.get()
+        // 如果是lazy就什么都不做
+        this.value = this.lazy ? undefined : this.get()
     }
     get() {
         pushTarget(this) // Dep的target就是一个watcher
@@ -47,7 +52,7 @@ class Watcher {
         */
         // 稍后用户更新的时候可以重新调用get方法
         // 这里拿到的值是辛的值
-        const value = this.getter()
+        const value = this.getter.call(this.vm)
         popTarget() // 这里去除Dep.target,是防止用户在js中取值产生依赖收集
         return value
     }
@@ -56,7 +61,13 @@ class Watcher {
         // 如果多次跟新的是一个watcher，合并成一个
         // vue中的更新是异步的
         // this.get()
-        queueWatcher(this)
+
+        // 如果当前的watcher是lazy的，则说明是计算属性的watcher
+        if (this.lazy) {
+            this.dirty = true
+        } else {
+            queueWatcher(this)
+        }
     }
 
     run() { // 后续要有其他的功能
@@ -74,6 +85,21 @@ class Watcher {
             this.depsId.add(id)
             this.deps.push(dep)
             dep.addSub(this)
+        }
+    }
+
+    evaluate() {
+        // 把dirty置位false，说明取过值了
+        this.dirty = false
+        // get就是watcher传进来的exprOrFn
+        this.value = this.get()
+    }
+
+    depend() {
+        let i = this.deps.length
+        console.log('i', i)
+        while (i--) {
+            this.deps[i].depend()
         }
     }
 
