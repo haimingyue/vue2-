@@ -94,7 +94,6 @@ function initComputed(vm, computed) {
          **/
         const userDef = computed[key]
         let getter = typeof userDef === 'function' ? userDef : userDef.get
-        console.log('getter', getter)
         // 这里有多少个getter就要有多少个watcher，每一个计算属性的本质就是一个watcher
 
         // 将wathcer和属性做一个映射
@@ -140,7 +139,6 @@ function createComputedGetter(key) {
          */
         if (Dep.target) {
             // 计算属性watcher内部有两个dep 
-            console.log('dep.target', Dep.target)
             watcher.depend() //watcher里面对应了多个dep
         }
 

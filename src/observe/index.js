@@ -46,7 +46,6 @@ class Observer {
 function dependArray(value) {
     for (let i = 0; i < value.length; i++) {
         let current = value[i] // current 是数组里面的数组
-        console.log('current', current)
         current.__ob__ && current.__ob__.dep.depend()
         if (Array.isArray(current)) {
             dependArray(current)

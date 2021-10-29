@@ -29,7 +29,6 @@ let stack = []
 export function pushTarget(watcher) {
     Dep.target = watcher
     stack.push(watcher)
-    console.log('stack', stack)
 }
 
 export function popTarget() {

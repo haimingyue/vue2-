@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app">
+        <my-button></my-button>
+    </div>
+    <script src="dist/vue.js"></script>
+
+    <script>
+        Vue.component('my-button', {
+            template: '<button>hello1</button>'
+        })
+        let vm = new Vue({
+            // 按找个套路，Vue就是一个类
+            el: '#app',
+            beforeCreate() {
+                console.log('parent beforeCreate')
+            },
+            mounted() {
+                console.log('parent mounted')
+            },
+            components: {
+                'my-button': {
+                    template: '<button>button2</button>',
+                    beforeCreate() {
+                        console.log('child beforeCreate')
+                    },
+                    mounted() {
+                        console.log('child mounted')
+                    },
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

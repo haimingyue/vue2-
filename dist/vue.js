@@ -4,6 +4,44 @@
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.Vue = factory());
 }(this, (function () { 'use strict';
 
+  function ownKeys(object, enumerableOnly) {
+    var keys = Object.keys(object);
+
+    if (Object.getOwnPropertySymbols) {
+      var symbols = Object.getOwnPropertySymbols(object);
+
+      if (enumerableOnly) {
+        symbols = symbols.filter(function (sym) {
+          return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+        });
+      }
+
+      keys.push.apply(keys, symbols);
+    }
+
+    return keys;
+  }
+
+  function _objectSpread2(target) {
+    for (var i = 1; i < arguments.length; i++) {
+      var source = arguments[i] != null ? arguments[i] : {};
+
+      if (i % 2) {
+        ownKeys(Object(source), true).forEach(function (key) {
+          _defineProperty(target, key, source[key]);
+        });
+      } else if (Object.getOwnPropertyDescriptors) {
+        Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
+      } else {
+        ownKeys(Object(source)).forEach(function (key) {
+          Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+        });
+      }
+    }
+
+    return target;
+  }
+
   function _typeof(obj) {
     "@babel/helpers - typeof";
 
@@ -40,6 +78,21 @@
     if (protoProps) _defineProperties(Constructor.prototype, protoProps);
     if (staticProps) _defineProperties(Constructor, staticProps);
     return Constructor;
+  }
+
+  function _defineProperty(obj, key, value) {
+    if (key in obj) {
+      Object.defineProperty(obj, key, {
+        value: value,
+        enumerable: true,
+        configurable: true,
+        writable: true
+      });
+    } else {
+      obj[key] = value;
+    }
+
+    return obj;
   }
 
   function isFunction(val) {
@@ -97,6 +150,97 @@
       timer(flushCallbacks);
       waiting = true;
     }
+  }
+  var lifeCycleHooks = ['beforeCreate', 'created', 'beforeMount', 'mounted', 'beforeUpdate', 'updated', 'destoryed', 'beforeDestory'];
+  var strats = {}; // 这里存放着各种策略
+
+  function mergeHook(parentVal, childVal) {
+    if (childVal) {
+      if (parentVal) {
+        return parentVal.concat(childVal);
+      } else {
+        return [childVal];
+      }
+    } else {
+      return parentVal;
+    }
+  }
+
+  lifeCycleHooks.forEach(function (hook) {
+    strats[hook] = mergeHook;
+  });
+
+  strats.components = function (parentVal, childVal) {
+    var options = Object.create(parentVal); // 根据父对象构造一个新对象
+
+    if (childVal) {
+      for (var key in childVal) {
+        options[key] = childVal[key];
+      }
+    }
+
+    return options;
+  };
+
+  strats.data = function () {}; // strats.components = function () {
+  // }
+
+
+  function mergeOptions(parent, child) {
+    var options = {}; // 存放合并后的结果
+    // 如果父亲里面有元素，则进行合并
+    // 合并以儿子的值为准
+
+    for (var key in parent) {
+      mergeField(key);
+    }
+    /**
+     * 如果儿子里面有：
+     * 1. 如果父亲里面已经有了，就不进行合并了。
+     * 2. 如果父亲没有，则进行合并
+     */
+
+
+    for (var _key in child) {
+      if (parent.hasOwnProperty(_key)) {
+        continue;
+      }
+
+      mergeField(_key);
+    }
+
+    function mergeField(key) {
+      /**
+       * 获取父亲和儿子的值，只用策略模式进行合并
+       * 
+       */
+      var parentVal = parent[key];
+      var childVal = child[key]; // 通过策略模式，做不同的事情
+
+      if (strats[key]) {
+        // 如果有对应的策略，就调用对应的策略就好
+        options[key] = strats[key](parentVal, childVal);
+      } else {
+        /**
+         * 如果父亲和儿子都是对象，则使用扩展运算符进行合并
+         * 扩展运算符...后面对象的元素会覆盖前面元素的值
+         * 否则直接使用儿子的值
+         */
+        if (isObject(parentVal) && isObject(childVal)) {
+          options[key] = _objectSpread2(_objectSpread2({}, parentVal), childVal);
+        } else {
+          options[key] = child[key] || parent[key];
+        }
+      }
+    }
+
+    return options;
+  }
+  function isReservedTag(str) {
+    // return function (str) {
+    // 源码根据，生成隐射表
+    var reservedTag = 'a, div, span, img, button, ul, li';
+    return reservedTag.includes(str); // }
   }
 
   var oldArrayPrototype = Array.prototype;
@@ -179,15 +323,14 @@
 
   Dep.target = null; // 用一个栈解决computer的watcher问题
 
-  var stack$1 = [];
+  var stack = [];
   function pushTarget(watcher) {
     Dep.target = watcher;
-    stack$1.push(watcher);
-    console.log('stack', stack$1);
+    stack.push(watcher);
   }
   function popTarget() {
-    stack$1.pop();
-    Dep.target = stack$1[stack$1.length - 1];
+    stack.pop();
+    Dep.target = stack[stack.length - 1];
   }
 
   var Observer = /*#__PURE__*/function () {
@@ -242,7 +385,6 @@
     for (var i = 0; i < value.length; i++) {
       var current = value[i]; // current 是数组里面的数组
 
-      console.log('current', current);
       current.__ob__ && current.__ob__.dep.depend();
 
       if (Array.isArray(current)) {
@@ -451,7 +593,6 @@
       key: "depend",
       value: function depend() {
         var i = this.deps.length;
-        console.log('i', i);
 
         while (i--) {
           this.deps[i].depend();
@@ -561,8 +702,7 @@
        * 依赖的属性变化，就重新取值
        **/
       var userDef = computed[key];
-      var getter = typeof userDef === 'function' ? userDef : userDef.get;
-      console.log('getter', getter); // 这里有多少个getter就要有多少个watcher，每一个计算属性的本质就是一个watcher
+      var getter = typeof userDef === 'function' ? userDef : userDef.get; // 这里有多少个getter就要有多少个watcher，每一个计算属性的本质就是一个watcher
       // 将wathcer和属性做一个映射
 
       watchers[key] = new Watcher(vm, getter, function () {}, {
@@ -615,7 +755,6 @@
 
       if (Dep.target) {
         // 计算属性watcher内部有两个dep 
-        console.log('dep.target', Dep.target);
         watcher.depend(); //watcher里面对应了多个dep
       }
 
@@ -643,61 +782,61 @@
 
   var startTagClose = /^\s*(\/?)>/; //     />   <div/>
   // const defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g; // {{aaaaa}}
-  // ast (语法层面的描述 js css html) vdom （dom节点）
-  // html字符串解析成 对应的脚本来触发 tokens  <div id="app"> {{name}}</div>
-  // 将解析后的结果 组装成一个树结构  栈
-
-  function createAstElement(tagName, attrs) {
-    return {
-      tag: tagName,
-      type: 1,
-      children: [],
-      parent: null,
-      attrs: attrs
-    };
-  }
-
-  var root = null;
-  var stack = [];
-
-  function start(tagName, attributes) {
-    var parent = stack[stack.length - 1];
-    var element = createAstElement(tagName, attributes);
-
-    if (!root) {
-      root = element;
-    }
-
-    if (parent) {
-      element.parent = parent; // 当放入栈中时 继续父亲是谁
-
-      parent.children.push(element);
-    }
-
-    stack.push(element);
-  }
-
-  function end(tagName) {
-    var last = stack.pop();
-
-    if (last.tag !== tagName) {
-      throw new Error('标签有误');
-    }
-  }
-
-  function chars(text) {
-    text = text.replace(/\s/g, "");
-    var parent = stack[stack.length - 1];
-
-    if (text) {
-      parent.children.push({
-        type: 3,
-        text: text
-      });
-    }
-  }
 
   function parserHTML(html) {
+    // ast (语法层面的描述 js css html) vdom （dom节点）
+    // html字符串解析成 对应的脚本来触发 tokens  <div id="app"> {{name}}</div>
+    // 将解析后的结果 组装成一个树结构  栈
+    function createAstElement(tagName, attrs) {
+      return {
+        tag: tagName,
+        type: 1,
+        children: [],
+        parent: null,
+        attrs: attrs
+      };
+    }
+
+    var root = null;
+    var stack = [];
+
+    function start(tagName, attributes) {
+      var parent = stack[stack.length - 1];
+      var element = createAstElement(tagName, attributes);
+
+      if (!root) {
+        root = element;
+      }
+
+      if (parent) {
+        element.parent = parent; // 当放入栈中时 继续父亲是谁
+
+        parent.children.push(element);
+      }
+
+      stack.push(element);
+    }
+
+    function end(tagName) {
+      var last = stack.pop();
+
+      if (last.tag !== tagName) {
+        throw new Error('标签有误');
+      }
+    }
+
+    function chars(text) {
+      text = text.replace(/\s/g, "");
+      var parent = stack[stack.length - 1];
+
+      if (text) {
+        parent.children.push({
+          type: 3,
+          text: text
+        });
+      }
+    }
+
     function advance(len) {
       html = html.substring(len);
     }
@@ -864,17 +1003,33 @@
   }
 
   function patch(oldVnode, vnode) {
-    // console.log('oldVnode', oldVnode.nodeType)
-    if (oldVnode.nodeType == 1) {
-      // console.log('真实元素', vnode)
-      // 用Vnode 替换真实 Dom
-      var parentEl = oldVnode.parentNode;
-      var elm = createElm(vnode); // console.log()
-      // 第一次渲染后，就会删除oldVnode
+    if (!oldVnode) {
+      return createElm(vnode); // 如果没有el元素，那就直接根据虚拟节点返回真实节点
+    }
 
-      parentEl.insertBefore(elm, oldVnode.nextSibling);
-      parentEl.removeChild(oldVnode);
+    if (oldVnode.nodeType == 1) {
+      // 用vnode  来生成真实dom 替换原本的dom元素
+      var parentElm = oldVnode.parentNode; // 找到他的父亲
+
+      var elm = createElm(vnode); //根据虚拟节点 创建元素
+      // 在第一次渲染后 是删除掉节点，下次在使用无法获取
+
+      parentElm.insertBefore(elm, oldVnode.nextSibling);
+      parentElm.removeChild(oldVnode);
       return elm;
+    }
+  } // 创建真实节点的
+
+  function createComponent$1(vnode) {
+    var i = vnode.data; //  vnode.data.hook.init
+
+    if ((i = i.hook) && (i = i.init)) {
+      i(vnode); // 调用init方法，传入vnode值 
+    }
+
+    if (vnode.componentInstance) {
+      // 有属性说明子组件new完毕了，并且组件对应的真实DOM挂载到了componentInstance.$el
+      return true;
     }
   }
 
@@ -886,8 +1041,15 @@
         vnode.vm;
 
     if (typeof tag === 'string') {
-      // 虚拟节点会有一个el属性，对应真实节点
-      vnode.el = document.createElement(tag);
+      // 元素
+      // debugger;
+      if (createComponent$1(vnode)) {
+        // 返回组件对应的真实节点
+        return vnode.componentInstance.$el;
+      }
+
+      vnode.el = document.createElement(tag); // 虚拟节点会有一个el属性 对应真实节点
+
       children.forEach(function (child) {
         vnode.el.appendChild(createElm(child));
       });
@@ -921,21 +1083,47 @@
     // updateComponent()
     // 如果属性发生变化，就调用updateComponent方法
     // 每一个组件都有一个watcher
+    // 挂载之前，调用beforeMount
 
 
+    callHook(vm, 'beforeMount');
     new Watcher(vm, updateComponent, function () {// console.log('我更新视图了')
       // true 告诉他是一个渲染过程
       // 后续还有其他的watcher
     }, true);
+    callHook(vm, 'mounted');
+  }
+  /**
+   * 调用钩子函数
+   * 调用的事哪个实例的，哪个钩子
+   * 对象上的数组
+   */
+
+  function callHook(vm, hook) {
+    var handlers = vm.$options[hook]; // 找到Hooks就依次执行就行了
+    // beforeCreate: [fn1, fn2, fn3]
+
+    if (handlers) {
+      for (var i = 0; i < handlers.length; i++) {
+        handlers[i].call(vm);
+      }
+    }
   }
 
   function initMixin(Vue) {
     Vue.prototype._init = function (options) {
       // 这里的this就是当前的Vue实例
       var vm = this; // 给$options赋值
+      // vm.$options = options
+      // constructor始终指向创建当前对象的构造函数
 
-      vm.$options = options;
-      initState(vm);
+      vm.$options = mergeOptions(vm.constructor.options, options);
+      console.log('vm.$options', vm.$options); // 没有初始化的时候，执行beforeCreate
+
+      callHook(vm, 'beforeCreate');
+      initState(vm); // 初始化结束之后，执行created
+
+      callHook(vm, 'created');
 
       if (vm.$options.el) {
         // 将数据挂载到这个模板上
@@ -956,9 +1144,10 @@
         if (!template && el) {
           // 用户没有自己写template，就取el的内容作为模板
           template = el.outerHTML;
-          var render = compileToFunction(template);
-          options.render = render;
         }
+
+        var render = compileToFunction(template);
+        options.render = render;
       }
 
       mountComponent(vm);
@@ -973,20 +1162,59 @@
     }
 
     // console.log('112233', vnode(vm, tag, data, data.key, children, undefined))
-    return vnode(vm, tag, data, data.key, children, undefined);
+
+    /**
+     * 如果tag是一个组件的话，就根据组件创建一个Vnode
+     * 
+     */
+    if (isReservedTag(tag)) {
+      return vnode(vm, tag, data, data.key, children, undefined);
+    } else {
+      console.log('tag', tag);
+      var Ctor = vm.$options.components[tag];
+      return createComponent(vm, tag, data, data.key, children, Ctor);
+    }
   }
+
+  function createComponent(vm, tag, data, key, children, Ctor) {
+    // 最核心的是要的：组件的构造函数
+    // 这里的Ctor有可能是对象，有可能是函数
+    // 如果是对象，就需要把它保证成一个函数
+    if (isObject(Ctor)) {
+      Ctor = vm.$options._base.extend(Ctor);
+    }
+
+    console.log('Ctor', Ctor);
+    data.hook = {
+      init: function init(vnode) {
+        // 初始化组件
+        var vm = vnode.componentInstance = new Ctor({
+          _isComponent: true
+        }); // new Sub 会用此选项和组价的配置进行合并
+
+        console.log('vmmmmm', vm);
+        vm.$mount();
+      }
+    };
+    return vnode(vm, "vue-component-".concat(tag), data, key, undefined, undefined, {
+      Ctor: Ctor,
+      children: children
+    });
+  }
+
   function createTextElement(vm, text) {
     return vnode(vm, undefined, undefined, undefined, undefined, text);
   }
 
-  function vnode(vm, tag, data, key, children, text) {
+  function vnode(vm, tag, data, key, children, text, componentOptions) {
     return {
       vm: vm,
       tag: tag,
       data: data,
       key: key,
       children: children,
-      text: text
+      text: text,
+      componentOptions: componentOptions
     };
   }
 
@@ -1027,6 +1255,64 @@
     };
   }
 
+  function initGlobalApi(Vue) {
+    Vue.options = {};
+    /**
+     * options用于存放全局配置，每个组件初始化的时候，都会和options选项进行合并
+     * Vue.component
+     * Vue.filter
+     * Vue.directive
+     */
+
+    Vue.mixin = function (options) {
+      /**
+       * options是一个对象
+       * {
+       *  beforeMounted() {xxx}
+       * }
+       * 这里是把 当前的options和传入的options进行合并
+       */
+      this.options = mergeOptions(this.options, options);
+      return this;
+    };
+
+    Vue.options._base = Vue; // 无论后续创建多少个子类，都可以通过_base找到父类
+
+    Vue.options.components = {}; // 组件可能不是一个，可能会注册多个
+
+    Vue.component = function (id, definition) {
+      /**
+       * id: 组件的名称
+       * definition: 组件的定义
+       * 为了父子关系，还要创建一个子类，保证组件隔离
+       * 每个组件产生一个类，继承父类
+       */
+      definition = this.options._base.extend(definition);
+      this.options.components[id] = definition;
+    };
+    /**
+     * extend的作用：产生一个类
+     */
+
+
+    Vue.extend = function (opts) {
+      // 产生一个继承与Vue的类，并且身上应该有父类的所有的功能
+      var Super = this; // 根据类产生了一个类，这个类继承自父类
+      // 这个继承要重写constructor 
+
+      var Sub = function VueComponent(options) {
+        // 调用当前组件的init方法
+        this._init(options);
+      };
+
+      Sub.prototype = Object.create(Super.prototype);
+      Sub.prototype.constructor = Sub; // 子类的options要包含全局的options和自己的opt
+
+      Sub.options = mergeOptions(Super.options, opts);
+      return Sub;
+    };
+  }
+
   /**
    * 
    * @param {*} options 
@@ -1046,7 +1332,9 @@
   renderMixin(Vue); // _update
 
   lifecycleMixin(Vue);
-  stateMixin(Vue);
+  stateMixin(Vue); // 帮我初始化一个全局Api，在类上面扩展
+
+  initGlobalApi(Vue);
 
   return Vue;
 
