@@ -25,9 +25,28 @@ export function mountComponent(vm, el) {
     // updateComponent()
     // 如果属性发生变化，就调用updateComponent方法
     // 每一个组件都有一个watcher
+    // 挂载之前，调用beforeMount
+    callHook(vm, 'beforeMount')
     new Watcher(vm, updateComponent, () => {
         // console.log('我更新视图了')
         // true 告诉他是一个渲染过程
         // 后续还有其他的watcher
     }, true)
+    callHook(vm, 'mounted')
+}
+
+/**
+ * 调用钩子函数
+ * 调用的事哪个实例的，哪个钩子
+ * 对象上的数组
+ */
+export function callHook(vm, hook) {
+    let handlers = vm.$options[hook]
+    // 找到Hooks就依次执行就行了
+    // beforeCreate: [fn1, fn2, fn3]
+    if (handlers) {
+        for (let i = 0; i < handlers.length; i++) {
+            handlers[i].call(vm)
+        }
+    }
 }

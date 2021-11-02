@@ -2,6 +2,7 @@ import { initMixin } from './init';
 import { renderMixin } from './render';
 import { lifecycleMixin } from './lifecycle';
 import { stateMixin } from './state'
+import { initGlobalApi } from './global-api/index';
 
 /**
  * 
@@ -20,5 +21,8 @@ renderMixin(Vue)
 // _update
 lifecycleMixin(Vue)
 stateMixin(Vue)
+// 帮我初始化一个全局Api，在类上面扩展
+initGlobalApi(Vue)
+
 
 export default Vue
